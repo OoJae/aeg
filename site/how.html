@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aeg — the manifesto</title>
+<meta name="description" content="How Aeg keeps an AI agent's memory honest: screen, detect, quarantine, forget, reinforce, and remember the attack. Six steps, each mapped to a real cognee operation — and the honest limits.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Aeg — the manifesto">
+<meta property="og:description" content="Six steps of a memory immune system, each a real cognee operation. And the honest limits.">
+<meta property="og:image" content="/assets/og.png">
+<link rel="stylesheet" href="/assets/brand.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--obsidian); color: var(--bone);
+    font-family: var(--font-body); font-size: var(--text-body); line-height: 1.6;
+    -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+  body::after {
+    content:""; position: fixed; inset:0; z-index:3; pointer-events:none;
+    opacity:0.04; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  nav {
+    position: fixed; top:0; left:0; right:0; z-index:5;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 22px clamp(20px,5vw,64px); mix-blend-mode: difference;
+  }
+  .nav-brand { display:flex; align-items:center; gap:12px; }
+  .nav-brand img { width:26px; height:26px; }
+  .nav-brand .name { font-family: var(--font-mono); font-size:0.8rem; letter-spacing:0.28em;
+                     text-transform:uppercase; color:#fff; }
+  .nav-links { display:flex; gap: clamp(14px,3vw,34px); }
+  .nav-links a { font-family:var(--font-mono); font-size:0.72rem; letter-spacing:0.14em;
+                 text-transform:uppercase; color:#fff; padding-bottom:3px;
+                 border-bottom:1px solid transparent; transition:border-color .3s; }
+  .nav-links a:hover, .nav-links a[aria-current] { border-color:#fff; }
+
+  .shell { max-width: 1080px; margin: 0 auto; padding: 0 clamp(20px,6vw,64px); }
+
+  header.hero { padding: 26vh 0 12vh; }
+  .kicker { margin-bottom: 26px; }
+  header.hero h1 { font-family: var(--font-display); font-weight: 330;
+    font-size: clamp(2.8rem, 8vw, 7rem); line-height:0.98; letter-spacing:-0.03em; max-width: 15ch; }
+  header.hero h1 em { font-style: italic; }
+  header.hero .stand { margin-top: 32px; max-width: 54ch; color: var(--ash);
+    font-size: clamp(1.1rem,1.5vw,1.35rem); line-height:1.5; }
+  header.hero .stand b { color: var(--bone); font-weight:400; }
+
+  /* the numbered pipeline */
+  .steps { border-top: 1px solid var(--hairline); }
+  .step { display: grid; grid-template-columns: 6rem 1fr; gap: clamp(18px,5vw,72px);
+          padding: clamp(40px,7vh,84px) 0; border-bottom: 1px solid var(--hairline); }
+  .step .num { font-family: var(--font-display); font-weight: 300; font-size: clamp(2.5rem,5vw,4.5rem);
+               line-height: 0.9; color: var(--ash); }
+  .step[data-accent="toxin"] .num { color: var(--toxin); }
+  .step[data-accent="quarantine"] .num { color: var(--quarantine); }
+  .step[data-accent="vital"] .num { color: var(--vital); }
+  .step .op { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.14em;
+              text-transform: uppercase; color: var(--vital); margin-bottom: 16px; }
+  .step h2 { font-family: var(--font-display); font-weight: 360; font-size: clamp(1.9rem,3.6vw,3rem);
+             line-height: 1.02; letter-spacing:-0.02em; margin-bottom: 20px; }
+  .step p { color: var(--ash); max-width: 62ch; }
+  .step p b { color: var(--bone); font-weight: 400; }
+  .step .path { font-family: var(--font-mono); font-size: 0.76rem; color: var(--ash);
+                margin-top: 20px; opacity: 0.82; word-break: break-word; }
+  .step .path::before { content: "└ "; color: var(--vital); }
+
+  /* honest limits */
+  .limits { padding: 14vh 0 10vh; }
+  .limits .lead { margin-bottom: 48px; }
+  .limits h2 { font-family: var(--font-display); font-weight: 340; font-size: clamp(2rem,4.5vw,3.6rem);
+               letter-spacing:-0.02em; line-height:1; }
+  .limits .lead p { color: var(--ash); margin-top: 18px; max-width: 56ch; }
+  .limit { padding: 26px 0; border-top: 1px solid var(--hairline); }
+  .limit:last-child { border-bottom: 1px solid var(--hairline); }
+  .limit h3 { font-family: var(--font-mono); font-size: 0.82rem; letter-spacing:0.06em;
+              color: var(--bone); margin-bottom: 10px; }
+  .limit p { color: var(--ash); max-width: 68ch; }
+
+  .close { padding: 12vh 0 14vh; text-align: left; }
+  .close h2 { font-family: var(--font-display); font-weight: 340;
+              font-size: clamp(2.4rem,7vw,6rem); line-height:0.94; letter-spacing:-0.03em; max-width: 13ch; }
+  .close h2 em { font-style: italic; }
+  .cta-row { margin-top: 44px; display:flex; gap:24px; flex-wrap:wrap; align-items:center; }
+  .btn { font-family:var(--font-mono); font-size:0.78rem; letter-spacing:0.14em; text-transform:uppercase;
+         display:inline-flex; align-items:center; gap:10px; padding:15px 26px; border-radius:100px;
+         transition: transform .3s cubic-bezier(0.16,1,0.3,1), border-color .3s; }
+  .btn-primary { background:var(--vital); color:var(--obsidian); font-weight:500; }
+  .btn-primary:hover { transform: translateY(-2px); }
+  .btn-ghost { color:var(--bone); border:1px solid var(--hairline); }
+  .btn-ghost:hover { border-color:var(--bone); }
+
+  footer { padding: 40px 0; border-top: 1px solid var(--hairline);
+           display:flex; justify-content:space-between; flex-wrap:wrap; gap:16px; }
+  footer, footer a { font-family:var(--font-mono); font-size:0.72rem; letter-spacing:0.06em; color:var(--ash); }
+  footer a:hover { color: var(--bone); }
+
+  .fade { opacity: 0; transform: translateY(20px); }
+  .reveal.fade { opacity:1; transform:none; transition: opacity .8s cubic-bezier(0.16,1,0.3,1), transform .8s cubic-bezier(0.16,1,0.3,1); }
+
+  @media (max-width: 720px){ .step { grid-template-columns: 1fr; gap: 6px; }
+    .step .num { font-size: 2.2rem; } nav { padding:16px 20px; } .nav-links a:not(:last-child){ display:none; } }
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} .fade{opacity:1!important;transform:none!important;} *{transition:none!important;} }
+</style>
+</head>
+<body>
+<nav>
+  <a class="nav-brand" href="/" aria-label="Aeg home"><img src="/assets/aeg-mark.svg" alt=""><span class="name">Aeg</span></a>
+  <div class="nav-links">
+    <a href="/how" aria-current="page">Manifesto</a>
+    <a href="/proof">Proof</a>
+    <a href="/dashboard">Live demo</a>
+  </div>
+</nav>
+
+<main class="shell">
+  <header class="hero">
+    <div class="kicker brand-label">The manifesto</div>
+    <h1>An agent's memory is only as honest as what it lets <em>in.</em></h1>
+    <p class="stand">Aeg is a defensive layer over <b>cognee</b> that keeps a knowledge graph healthy —
+      borrowing the immune system. Six steps, each a real cognee operation, each verified before it
+      shipped. Here is the whole loop, and the limits we don't hide.</p>
+  </header>
+
+  <section class="steps">
+    <article class="step fade" data-accent="vital">
+      <div class="num">01</div>
+      <div>
+        <div class="op">Innate immunity · remember()</div>
+        <h2>Screen every memory at the door.</h2>
+        <p>Nothing enters untyped. Each incoming memory is scored by provenance — a user is trusted more
+          than an unattributed tool — and scanned for prompt-injection patterns. Clean content is cognified
+          with trust facets; anything with injection markers is <b>quarantined before it is ever stored</b>.
+          Screening is pure and instant; no memory is trusted just because it arrived.</p>
+        <div class="path">aeg/screening.py · screen, detect_injection → aeg/gateway.py</div>
+      </div>
+    </article>
+
+    <article class="step fade" data-accent="toxin">
+      <div class="num">02</div>
+      <div>
+        <div class="op">Adaptive immunity · recall() + LLM verifier</div>
+        <h2>Detect the lie that got past the door.</h2>
+        <p>A subtle falsehood with no injection markers still slips through — that's the realistic attack.
+          A two-stage scanner catches it: a cheap graph traversal finds claims that share a subject, then an
+          LLM verifier decides whether they truly <b>contradict</b>. A flaked verifier fails safe: it never
+          escalates on uncertainty.</p>
+        <div class="path">aeg/detection.py · candidate_pairs → verify_pair → decide</div>
+      </div>
+    </article>
+
+    <article class="step fade" data-accent="quarantine">
+      <div class="num">03</div>
+      <div>
+        <div class="op">Immune response · forget(memory_only=True)</div>
+        <h2>Quarantine — reversible before irreversible.</h2>
+        <p>The lower-trust side of a confirmed contradiction is pulled out of recall with an item-level,
+          <b>reversible</b> forget: its graph and vectors are wiped, but the raw record is kept so a
+          release can restore it. Ties never quarantine. A quarantine mistake costs nothing; a wrongful
+          deletion would cost the truth.</p>
+        <div class="path">aeg/detection.py · scan_dataset, release_claim → cognee_client.forget</div>
+      </div>
+    </article>
+
+    <article class="step fade" data-accent="vital">
+      <div class="num">04</div>
+      <div>
+        <div class="op">Immune response · forget()</div>
+        <h2>Verify, then forget for good.</h2>
+        <p>Before anything is permanently deleted, a verifier weighs the quarantined memory against the
+          surviving evidence. Only a confirmed-bad verdict triggers a full <b>forget()</b> — item-level and
+          zero-LLM at the deletion itself. Entities shared with honest memories survive; only the lie is
+          removed.</p>
+        <div class="path">aeg/response.py · respond, verify_quarantined → cognee_client.forget</div>
+      </div>
+    </article>
+
+    <article class="step fade" data-accent="vital">
+      <div class="num">05</div>
+      <div>
+        <div class="op">Reinforcement · improve(session_ids)</div>
+        <h2>Reinforce the truth that held.</h2>
+        <p>Healing isn't just deletion. A verification note is written to session memory, then
+          <b>improve()</b> bridges it into the permanent graph — recall content provably changes, proven in
+          tests with a before/after diff. The surviving claim comes back stronger than the lie ever was.</p>
+        <div class="path">aeg/response.py · reinforce → cognee_client.improve, recall_diff</div>
+      </div>
+    </article>
+
+    <article class="step fade" data-accent="vital">
+      <div class="num">06</div>
+      <div>
+        <div class="op">Innate memory · antibodies</div>
+        <h2>Remember the attack.</h2>
+        <p>Every defeated attack becomes an <b>antibody</b> — a token fingerprint of the poison, stored in a
+          dedicated namespace. When the same attack is replayed, it's blocked the instant it arrives, with
+          no scan and no LLM. The immune system learns, so the second attempt is cheaper to stop than the
+          first.</p>
+        <div class="path">aeg/antibodies.py · fingerprint, match_antibody, record_antibody</div>
+      </div>
+    </article>
+  </section>
+
+  <section class="limits">
+    <div class="lead">
+      <div class="brand-label fade reveal" style="margin-bottom:22px">What Aeg does not do</div>
+      <h2 class="fade reveal">A security tool that tells the truth about its edges.</h2>
+      <p class="fade reveal">Aeg detects, reduces, and heals — it does not guarantee. Every limit below is
+        backed by an empirical finding recorded in the project's verified-contract notes.</p>
+    </div>
+    <div class="limit fade reveal">
+      <h3>Recall is global in the embedded config.</h3>
+      <p>Filtering and dataset scoping leak through shared-entity traversal — which is exactly why Aeg's
+        quarantine is "never cognify / forget," not filtering, and why multi-user mode is organizational
+        namespacing rather than hard tenant isolation. True isolation needs access control or a Postgres/Cloud
+        backend.</p>
+    </div>
+    <div class="limit fade reveal">
+      <h3>Antibody matching is lexical.</h3>
+      <p>It blocks exact and near-exact replays — reordering, case, filler words — but not synonym-level
+        paraphrase. A reworded attack still falls to the slower LLM scan. Defense in depth, not a silver
+        bullet.</p>
+    </div>
+    <div class="limit fade reveal">
+      <h3>Detection is LLM-bounded.</h3>
+      <p>The verifier is only as good as the model behind it, and multi-hop retrieval varies with local
+        embeddings. Mitigations are built in — one fact per write, a chain-of-thought retrieval ladder — but
+        precision is a dial, not a promise.</p>
+    </div>
+  </section>
+
+  <section class="close">
+    <h2>See it happen <em>live.</em></h2>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/dashboard">● Enter the live demo</a>
+      <a class="btn btn-ghost" href="/">Back to the front</a>
+    </div>
+  </section>
+
+  <footer>
+    <span>Aeg — a memory immune system, built on cognee 1.2.2</span>
+    <span>Built with Claude Code · <a href="https://github.com/OoJae/aeg" target="_blank" rel="noopener noreferrer">source</a> · MIT</span>
+  </footer>
+</main>
+
+<script>
+(() => {
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce){ document.querySelectorAll(".fade").forEach(el=>el.classList.add("reveal")); return; }
+  const io = new IntersectionObserver((es)=>{ for(const e of es) if(e.isIntersecting){ e.target.classList.add("reveal"); io.unobserve(e.target);} }, {rootMargin:"0px 0px -12% 0px"});
+  document.querySelectorAll(".fade").forEach(el=>io.observe(el));
+})();
+</script>
+</body>
+</html>

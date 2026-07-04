@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aeg — memory that heals</title>
+<meta name="description" content="Aeg is an immune system for AI-agent memory, built on cognee. It screens every memory, detects contradictions, quarantines the suspect, forgets confirmed lies, and reinforces the truth. Poison it. Watch it recover.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Aeg — memory that heals">
+<meta property="og:description" content="An immune system for AI-agent memory, built on cognee. Poison it. Watch it recover.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/assets/brand.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--obsidian);
+    color: var(--bone);
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  /* grain film — the one texture */
+  body::after {
+    content: ""; position: fixed; inset: 0; z-index: 3; pointer-events: none;
+    opacity: 0.04; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* the fixed living constellation */
+  #stage { position: fixed; inset: 0; z-index: 0; }
+  #constellation { width: 100%; height: 100%; display: block; }
+  /* vignette so type always reads over the canvas */
+  #stage::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 90% at 30% 40%, transparent 40%, rgba(11,11,10,0.55) 100%);
+  }
+
+  main { position: relative; z-index: 2; }
+
+  /* nav */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 5;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px clamp(20px, 5vw, 64px);
+    mix-blend-mode: difference;
+  }
+  .nav-brand { display: flex; align-items: center; gap: 12px; }
+  .nav-brand img { width: 26px; height: 26px; }
+  .nav-brand .name {
+    font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.28em;
+    text-transform: uppercase; color: #fff;
+  }
+  .nav-links { display: flex; gap: clamp(14px, 3vw, 34px); }
+  .nav-links a {
+    font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #fff; padding-bottom: 3px;
+    border-bottom: 1px solid transparent; transition: border-color 0.3s;
+  }
+  .nav-links a:hover { border-color: #fff; }
+
+  /* generic section frame */
+  section { padding: 0 clamp(20px, 6vw, 96px); }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+
+  /* hero */
+  .hero { min-height: 100svh; display: flex; flex-direction: column; justify-content: center;
+          padding-top: 12vh; padding-bottom: 8vh; }
+  .eyebrow { margin-bottom: 28px; display: flex; align-items: center; gap: 12px; }
+  .eyebrow .tick { width: 8px; height: 8px; border-radius: 50%; background: var(--vital);
+                   box-shadow: 0 0 12px var(--vital); }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: var(--text-hero);
+    font-weight: 340;
+    line-height: 0.9;
+    letter-spacing: var(--ls-display);
+    font-optical-sizing: auto;
+  }
+  .hero h1 em { font-style: italic; font-weight: 340; }
+  .hero .lede {
+    margin-top: 34px; max-width: 40ch; color: var(--ash);
+    font-size: clamp(1.1rem, 1.5vw, 1.4rem); line-height: 1.5;
+  }
+  .hero .lede strong { color: var(--bone); font-weight: 400; }
+  .cta-row { margin-top: 44px; display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+  .btn {
+    font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.14em;
+    text-transform: uppercase; display: inline-flex; align-items: center; gap: 10px;
+    padding: 15px 26px; border-radius: 100px; transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), background 0.3s, color 0.3s;
+  }
+  .btn-primary { background: var(--vital); color: var(--obsidian); font-weight: 500; }
+  .btn-primary:hover { transform: translateY(-2px); }
+  .btn-ghost { color: var(--bone); border: 1px solid var(--hairline); }
+  .btn-ghost:hover { border-color: var(--bone); }
+  .scroll-hint {
+    font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--ash);
+  }
+
+  /* line-reveal primitive */
+  .line-mask { overflow: hidden; display: block; }
+  .line-inner { display: block; transform: translateY(110%); }
+  .reveal .line-inner { transform: translateY(0); transition: transform 0.9s cubic-bezier(0.16,1,0.3,1); }
+  .fade { opacity: 0; transform: translateY(18px); }
+  .reveal.fade, .reveal .fade { opacity: 1; transform: none; transition: opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1); }
+
+  /* scroll beats — each pins narrative while the constellation performs */
+  .beat { min-height: 100svh; display: flex; align-items: center; }
+  .beat .card { max-width: 46ch; }
+  .beat .status {
+    font-family: var(--font-mono); font-size: 0.74rem; letter-spacing: 0.12em;
+    color: var(--ash); margin-bottom: 20px; display: flex; gap: 10px; align-items: baseline;
+  }
+  .beat .status .n { color: var(--vital); }
+  .beat h2 {
+    font-family: var(--font-display); font-weight: 350;
+    font-size: var(--text-section); line-height: 1.02; letter-spacing: -0.02em;
+  }
+  .beat p { margin-top: 20px; color: var(--ash); max-width: 42ch; }
+  .beat p b { color: var(--bone); font-weight: 400; }
+  .beat[data-accent="toxin"] .status .n { color: var(--toxin); }
+  .beat[data-accent="quarantine"] .status .n { color: var(--quarantine); }
+
+  /* the four ops ledger */
+  .ledger { padding-top: 14vh; padding-bottom: 10vh; background: var(--obsidian); position: relative; z-index: 2; }
+  .ledger .head { margin-bottom: 60px; }
+  .ledger h2 { font-family: var(--font-display); font-weight: 340; font-size: var(--text-section);
+               letter-spacing: -0.02em; line-height: 1; }
+  .ledger .sub { color: var(--ash); margin-top: 18px; max-width: 52ch; }
+  .op {
+    display: grid; grid-template-columns: 3.5rem 1fr; gap: clamp(16px, 4vw, 60px);
+    padding: 34px 0; border-top: 1px solid var(--hairline); align-items: start;
+  }
+  .op:last-child { border-bottom: 1px solid var(--hairline); }
+  .op .call { font-family: var(--font-mono); color: var(--vital); font-size: 1.05rem; }
+  .op .idx { font-family: var(--font-mono); color: var(--ash); font-size: 0.8rem; padding-top: 4px; }
+  .op h3 { font-family: var(--font-display); font-weight: 380; font-size: clamp(1.5rem, 2.6vw, 2.3rem);
+           line-height: 1.05; margin-bottom: 12px; }
+  .op p { color: var(--ash); max-width: 60ch; }
+  .op .path { font-family: var(--font-mono); font-size: 0.76rem; color: var(--ash); margin-top: 14px;
+              opacity: 0.8; word-break: break-word; }
+  .op .path::before { content: "└ "; color: var(--vital); }
+
+  /* receipts band */
+  .receipts { padding: 12vh clamp(20px,6vw,96px); background: var(--carbon); position: relative; z-index: 2;
+              border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+  .receipts .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(24px, 5vw, 80px); max-width: 1000px; margin: 0 auto; }
+  .receipts .stat .num { font-family: var(--font-display); font-weight: 340; font-size: clamp(2.6rem, 6vw, 5rem);
+                         line-height: 1; letter-spacing: -0.02em; }
+  .receipts .stat .lbl { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.12em;
+                         text-transform: uppercase; color: var(--ash); margin-top: 14px; }
+
+  /* final CTA */
+  .close { min-height: 92svh; display: flex; flex-direction: column; justify-content: center;
+           padding: 10vh clamp(20px,6vw,96px); position: relative; z-index: 2; background: var(--obsidian); }
+  .close h2 { font-family: var(--font-display); font-weight: 340; font-size: var(--text-hero);
+              line-height: 0.92; letter-spacing: var(--ls-display); max-width: 14ch; }
+  .close h2 em { font-style: italic; }
+  .close .cta-row { margin-top: 48px; }
+
+  footer { padding: 44px clamp(20px,6vw,96px); position: relative; z-index: 2; background: var(--obsidian);
+           border-top: 1px solid var(--hairline); display: flex; justify-content: space-between;
+           flex-wrap: wrap; gap: 16px; }
+  footer, footer a { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em; color: var(--ash); }
+  footer a:hover { color: var(--bone); }
+
+  @media (max-width: 720px) {
+    .op { grid-template-columns: 1fr; gap: 8px; }
+    .receipts .grid { grid-template-columns: 1fr; gap: 40px; text-align: left; }
+    nav { padding: 16px 20px; }
+    .nav-links a:not(:last-child) { display: none; } /* keep only DEMO on tiny screens */
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .line-inner { transform: none !important; }
+    .fade { opacity: 1 !important; transform: none !important; }
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="stage" aria-hidden="true"><canvas id="constellation"></canvas></div>
+
+<nav>
+  <a class="nav-brand" href="/" aria-label="Aeg home">
+    <img src="/assets/aeg-mark.svg" alt="">
+    <span class="name">Aeg</span>
+  </a>
+  <div class="nav-links">
+    <a href="/how">Manifesto</a>
+    <a href="/proof">Proof</a>
+    <a href="/dashboard">Live demo</a>
+  </div>
+</nav>
+
+<main>
+  <!-- HERO -->
+  <section class="hero" id="top">
+    <div class="wrap">
+      <div class="eyebrow brand-label reveal fade"><span class="tick"></span> An immune system for machine memory</div>
+      <h1 class="reveal">
+        <span class="line-mask"><span class="line-inner">Memory</span></span>
+        <span class="line-mask"><span class="line-inner">that <em>heals.</em></span></span>
+      </h1>
+      <p class="lede reveal fade">Aeg is an immune system for an AI agent's memory, built on
+        <strong>cognee</strong>. It screens what goes in, detects the lies, and forgets them —
+        then reinforces the truth. <strong>Poison it. Watch it recover.</strong></p>
+      <div class="cta-row reveal fade">
+        <a class="btn btn-primary" href="/dashboard">● Enter the live demo</a>
+        <span class="scroll-hint">▼ Scroll</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCROLL BEATS: the constellation performs each one -->
+  <section class="beat" data-beat="1">
+    <div class="wrap"><div class="card">
+      <div class="status reveal fade"><span class="n">01</span> HEALTHY · 6 claims · trust intact</div>
+      <h2 class="reveal"><span class="line-mask"><span class="line-inner">A graph of</span></span>
+        <span class="line-mask"><span class="line-inner">what it knows.</span></span></h2>
+      <p class="reveal fade">Every memory enters typed, screened, and provenanced — a living
+        constellation of claims. <b>Project Atlas uses Postgres.</b> The agent answers correctly.</p>
+    </div></div>
+  </section>
+
+  <section class="beat" data-beat="2" data-accent="toxin">
+    <div class="wrap"><div class="card">
+      <div class="status reveal fade"><span class="n">02</span> INJECTED · source tool:ops-slack-bot · trust 0.25</div>
+      <h2 class="reveal"><span class="line-mask"><span class="line-inner">Then someone</span></span>
+        <span class="line-mask"><span class="line-inner">slips in a lie.</span></span></h2>
+      <p class="reveal fade">A compromised tool writes <b>“Atlas migrated to MongoDB.”</b> No
+        injection markers — it passes the door and reaches memory. The agent starts answering wrong.</p>
+    </div></div>
+  </section>
+
+  <section class="beat" data-beat="3" data-accent="toxin">
+    <div class="wrap"><div class="card">
+      <div class="status reveal fade"><span class="n">03</span> CONTRADICTION · confidence 0.99</div>
+      <h2 class="reveal"><span class="line-mask"><span class="line-inner">The infection</span></span>
+        <span class="line-mask"><span class="line-inner">spreads.</span></span></h2>
+      <p class="reveal fade">Adaptive immunity traverses the graph and an LLM verifier confirms the
+        conflict: two claims about Atlas's database that cannot both be true.</p>
+    </div></div>
+  </section>
+
+  <section class="beat" data-beat="4" data-accent="quarantine">
+    <div class="wrap"><div class="card">
+      <div class="status reveal fade"><span class="n">04</span> QUARANTINED · reversible · zero-LLM</div>
+      <h2 class="reveal"><span class="line-mask"><span class="line-inner">Ring the</span></span>
+        <span class="line-mask"><span class="line-inner">suspect off.</span></span></h2>
+      <p class="reveal fade">The lower-trust claim is isolated with <b>forget(memory_only=True)</b> —
+        out of recall in a fifth of a second, but recoverable if we're wrong. Reversible before irreversible.</p>
+    </div></div>
+  </section>
+
+  <section class="beat" data-beat="5">
+    <div class="wrap"><div class="card">
+      <div class="status reveal fade"><span class="n">05</span> FORGOTTEN · verified · permanent</div>
+      <h2 class="reveal"><span class="line-mask"><span class="line-inner">Verify,</span></span>
+        <span class="line-mask"><span class="line-inner">then forget.</span></span></h2>
+      <p class="reveal fade">A final check confirms the memory is bad, and <b>forget()</b> removes it
+        for good — the poisoned node dissolves. Shared knowledge survives; only the lie is gone.</p>
+    </div></div>
+  </section>
+
+  <section class="beat" data-beat="6">
+    <div class="wrap"><div class="card">
+      <div class="status reveal fade"><span class="n">06</span> HEALED · truth reinforced · health 100</div>
+      <h2 class="reveal"><span class="line-mask"><span class="line-inner">The graph</span></span>
+        <span class="line-mask"><span class="line-inner">re-knits.</span></span></h2>
+      <p class="reveal fade"><b>improve()</b> bridges a verified note back into permanent memory. Ask
+        again — <b>Postgres.</b> And Aeg remembers the attack, so the replay is blocked on sight.</p>
+    </div></div>
+  </section>
+
+  <!-- THE FOUR OPS -->
+  <section class="ledger">
+    <div class="wrap">
+      <div class="head">
+        <div class="brand-label reveal fade" style="margin-bottom:22px">How Aeg uses cognee</div>
+        <h2 class="reveal"><span class="line-mask"><span class="line-inner">Four operations,</span></span>
+          <span class="line-mask"><span class="line-inner">all load-bearing.</span></span></h2>
+        <p class="sub reveal fade">Not decoration. Each of cognee's memory operations does real work
+          in the loop — and every behavior was empirically verified before a line of feature code.</p>
+      </div>
+
+      <div class="op reveal fade"><span class="idx">01</span><div>
+        <div class="call">remember()</div>
+        <h3>Screened, typed ingest</h3>
+        <p>Innate immunity scores every incoming memory by provenance and scans it for injection.
+          Clean content is cognified with trust facets; blocked content is never written at all.</p>
+        <div class="path">aeg/gateway.py · screening.screen → cognee_client.remember</div>
+      </div></div>
+
+      <div class="op reveal fade"><span class="idx">02</span><div>
+        <div class="call">recall()</div>
+        <h3>Answers, and evidence</h3>
+        <p>The agent's Q&amp;A runs on graph-traversal lanes — a two-hop question the pure-vector lane
+          can't answer. The same op proves the heal: recall before and after, side by side.</p>
+        <div class="path">aeg/gateway.py · cognee_client.recall · recall_diff</div>
+      </div></div>
+
+      <div class="op reveal fade"><span class="idx">03</span><div>
+        <div class="call">forget()</div>
+        <h3>The immune response</h3>
+        <p>Two-tier and item-level. Reversible quarantine wipes a memory from recall but keeps the
+          raw record; permanent removal deletes it after a verification gate. Zero LLM calls.</p>
+        <div class="path">aeg/detection.py · aeg/response.py · cognee_client.forget</div>
+      </div></div>
+
+      <div class="op reveal fade"><span class="idx">04</span><div>
+        <div class="call">improve()</div>
+        <h3>Reinforce the truth</h3>
+        <p>A verification note is written to session memory, then bridged into the permanent graph —
+          recall content provably changes. The truth comes back stronger than the lie ever was.</p>
+        <div class="path">aeg/response.py · reinforce → cognee_client.improve</div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- RECEIPTS -->
+  <section class="receipts">
+    <div class="grid">
+      <div class="stat reveal fade"><div class="num">72</div><div class="lbl">tests, green</div></div>
+      <div class="stat reveal fade"><div class="num">18/18</div><div class="lbl">API behaviors verified first</div></div>
+      <div class="stat reveal fade"><div class="num">~60s</div><div class="lbl">poison → heal, end to end</div></div>
+    </div>
+  </section>
+
+  <!-- CLOSE -->
+  <section class="close">
+    <div class="wrap">
+      <h2 class="reveal"><span class="line-mask"><span class="line-inner">Attack the</span></span>
+        <span class="line-mask"><span class="line-inner">memory. <em>It heals.</em></span></span></h2>
+      <div class="cta-row reveal fade">
+        <a class="btn btn-primary" href="/dashboard">● Enter the live demo</a>
+        <a class="btn btn-ghost" href="/how">Read the manifesto</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Aeg — a memory immune system, built on cognee 1.2.2</span>
+    <span>Built with Claude Code · <a href="https://github.com/OoJae/aeg" target="_blank" rel="noopener noreferrer">source</a> · MIT</span>
+  </footer>
+</main>
+
+<script>
+(() => {
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- line + fade reveals (fire once) ---------- */
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) { e.target.classList.add("reveal-on"); reveal(e.target); io.unobserve(e.target); }
+    }
+  }, { rootMargin: "0px 0px -15% 0px" });
+  function reveal(el) {
+    el.classList.add("reveal");
+    const inners = el.querySelectorAll(".line-inner");
+    inners.forEach((n, i) => { n.style.transitionDelay = (i * 0.07) + "s"; });
+  }
+  if (reduce) {
+    document.querySelectorAll(".reveal, .fade").forEach(el => el.classList.add("reveal"));
+  } else {
+    document.querySelectorAll(".reveal").forEach(el => io.observe(el));
+    // hero reveals on load, orchestrated
+    addEventListener("load", () => {
+      setTimeout(() => document.querySelectorAll(".hero .reveal").forEach((el,i)=>{
+        setTimeout(()=>{ el.classList.add("reveal"); reveal(el); }, i*90);
+      }), 120);
+    });
+  }
+
+  /* ---------- the self-healing constellation ---------- */
+  const canvas = document.getElementById("constellation");
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, DPR = 1;
+  const small = matchMedia("(max-width: 720px)").matches;
+  const N = small ? 68 : 112;
+  const COL = { bone:"237,232,221", vital:"47,191,113", ash:"138,134,123", toxin:"216,67,76", quar:"232,168,28" };
+
+  // nodes in a rough sphere shell
+  const nodes = [];
+  for (let i=0;i<N;i++){
+    const th = Math.acos(2*Math.random()-1), ph = Math.random()*Math.PI*2;
+    const r = 0.72 + Math.random()*0.28;
+    nodes.push({
+      x: Math.sin(th)*Math.cos(ph)*r, y: Math.sin(th)*Math.sin(ph)*r, z: Math.cos(th)*r,
+      seed: Math.random()*Math.PI*2
+    });
+  }
+  // one node is "the poison"; a neighbor cluster is what it threatens
+  const poison = Math.floor(N*0.5);
+  // edges by proximity
+  const edges = [];
+  for (let i=0;i<N;i++) for (let j=i+1;j<N;j++){
+    const dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y, dz=nodes[i].z-nodes[j].z;
+    if (dx*dx+dy*dy+dz*dz < 0.20) edges.push([i,j]);
+  }
+
+  function resize(){
+    DPR = Math.min(devicePixelRatio||1, small?1.5:2);
+    W = innerWidth; H = innerHeight;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    canvas.style.width = W+"px"; canvas.style.height = H+"px";
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  addEventListener("resize", resize); resize();
+
+  // scroll progress 0..1 with internal lerp for buttery feel (no scroll-jack)
+  let target = 0, cur = 0;
+  function onScroll(){
+    const doc = document.documentElement;
+    const max = doc.scrollHeight - innerHeight;
+    // map the beats region (hero end → beat 6 end ≈ 7 viewports) to 0..1
+    const beatsEnd = innerHeight * 6.6;
+    target = Math.max(0, Math.min(1, scrollY / beatsEnd));
+  }
+  addEventListener("scroll", onScroll, {passive:true}); onScroll();
+
+  const mix = (a,b,t)=>a+(b-a)*t;
+  function lerpCol(c1,c2,t){
+    const p=s=>s.split(",").map(Number);
+    const A=p(c1),B=p(c2);
+    return `${mix(A[0],B[0],t)|0},${mix(A[1],B[1],t)|0},${mix(A[2],B[2],t)|0}`;
+  }
+  // beat centers on t: 0 healthy .12 inject .32 spread .52 quarantine .70 forget .86 heal 1
+  function phase(t){
+    // returns {infect, quar, forgotten, heal} 0..1 controls
+    const seg=(a,b)=>Math.max(0,Math.min(1,(t-a)/(b-a)));
+    return {
+      infect: seg(0.10,0.34) * (1-seg(0.78,0.92)),  // toxin rises, then cleared
+      spread: seg(0.24,0.50),
+      quar: seg(0.50,0.66) * (1-seg(0.80,0.90)),
+      forgotten: seg(0.72,0.88),
+      heal: seg(0.80,1.0)
+    };
+  }
+
+  let tms = 0;
+  function frame(ts){
+    tms = reduce ? 0 : ts*0.001;
+    cur += (target-cur)*(reduce?1:0.08);
+    const p = phase(cur);
+    ctx.clearRect(0,0,W,H);
+
+    // camera: slow drift + a nudge from scroll
+    const ay = tms*0.10 + cur*1.4, ax = Math.sin(tms*0.13)*0.25 + 0.2;
+    const cy=Math.cos(ay), sy=Math.sin(ay), cx=Math.cos(ax), sx=Math.sin(ax);
+    const scale = Math.min(W,H) * (small?0.34:0.40);
+    const cxp=W*(small?0.5:0.62), cyp=H*0.46;
+
+    const proj = nodes.map((n,i)=>{
+      // wobble
+      const wob = 1 + Math.sin(tms*0.6+n.seed)*0.015;
+      let x=n.x*wob, y=n.y*wob, z=n.z*wob;
+      // rotate Y then X
+      let x1=x*cy - z*sy, z1=x*sy + z*cy;
+      let y1=y*cx - z1*sx, z2=y*sx + z1*cx;
+      const persp = 1/(2.2 - z2);
+      // poison node & its neighbors drift outward during infection
+      return { X:cxp + x1*scale*persp, Y:cyp + y1*scale*persp, Z:z2, P:persp, i };
+    });
+
+    // distance of each node from poison (graph-ish, via 3d dist) for spread coloring
+    // edges
+    for (const [a,b] of edges){
+      const A=proj[a], B=proj[b];
+      const depth=(A.Z+B.Z)*0.5;
+      let alpha = 0.06 + Math.max(0,depth)*0.13;
+      let col = COL.vital;
+      // infection travels along edges near poison
+      const near = (a===poison||b===poison);
+      if (near && p.spread>0){ col = lerpCol(COL.vital, COL.toxin, p.infect); alpha += 0.10*p.infect; }
+      if (p.heal>0){ col = lerpCol(col, COL.vital, p.heal); }
+      ctx.strokeStyle = `rgba(${col},${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(A.X,A.Y); ctx.lineTo(B.X,B.Y); ctx.stroke();
+    }
+
+    // nodes
+    for (const pt of proj){
+      const i=pt.i;
+      const base = 1.4 + Math.max(0,pt.Z)*2.2;
+      let r = base * pt.P * (small?1.6:1.9);
+      let col = COL.vital, glow=0;
+
+      if (i===poison){
+        if (p.forgotten>0){
+          // dissolve to particles
+          const g = p.forgotten;
+          if (g<1){
+            for(let k=0;k<6;k++){
+              const a=pt.seed?0:0, ang=(k/6)*Math.PI*2 + tms;
+              const rad = g*22;
+              ctx.fillStyle=`rgba(${COL.ash},${(1-g)*0.5})`;
+              ctx.beginPath(); ctx.arc(pt.X+Math.cos(ang)*rad, pt.Y+Math.sin(ang)*rad, (1-g)*2.2, 0, 7); ctx.fill();
+            }
+          }
+          continue; // node itself gone
+        }
+        col = lerpCol(COL.vital, COL.toxin, p.infect);
+        glow = 20*p.infect;
+        r *= 1 + 1.15*p.infect;
+        // a faint toxin halo so the compromised memory is unmistakable
+        if (p.infect>0.15 && p.forgotten===0){
+          ctx.fillStyle=`rgba(${COL.toxin},${0.10*p.infect})`;
+          ctx.beginPath(); ctx.arc(pt.X, pt.Y, r+16*p.infect, 0, 7); ctx.fill();
+        }
+        // quarantine ring
+        if (p.quar>0){
+          ctx.strokeStyle=`rgba(${COL.quar},${0.8*p.quar})`;
+          ctx.lineWidth=1.4;
+          ctx.setLineDash([4,4]); ctx.lineDashOffset = -tms*8;
+          ctx.beginPath(); ctx.arc(pt.X, pt.Y, r+10+4*Math.sin(tms*2), 0, 7); ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      } else if (p.heal>0){
+        col = COL.vital; glow = 4*p.heal;
+      }
+
+      if (glow>0){ ctx.shadowColor=`rgba(${col},0.9)`; ctx.shadowBlur=glow; }
+      ctx.fillStyle=`rgba(${col},${0.45 + Math.max(0,pt.Z)*0.55})`;
+      ctx.beginPath(); ctx.arc(pt.X, pt.Y, Math.max(0.6,r), 0, 7); ctx.fill();
+      ctx.shadowBlur=0;
+    }
+
+    if (!reduce) requestAnimationFrame(frame);
+  }
+
+  if (reduce){ target = 1; cur = 1; requestAnimationFrame(frame); }   // one static healed paint
+  else requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

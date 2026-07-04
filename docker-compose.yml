@@ -1,0 +1,26 @@
+# Phase-6 Postgres profile — relational + vector (pgvector) for Aeg/Cognee.
+# The graph store stays embedded Ladybug (no second external service).
+#
+#   docker compose up -d
+#   AEG_PROFILE=postgres uv run python demo/run_demo.py
+#
+# Requires the postgres extra:  uv add "cognee[postgres]==1.2.2"
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: cognee
+      POSTGRES_PASSWORD: cognee
+      POSTGRES_DB: cognee
+    ports:
+      - "5432:5432"
+    volumes:
+      - aeg_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cognee"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  aeg_pgdata:

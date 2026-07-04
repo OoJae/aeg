@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aeg — the receipts</title>
+<meta name="description" content="Aeg verified cognee's real behavior before building on it — 18 empirical checks, a written contract, and tests that prove forget() and improve() actually change recall. Here is the evidence.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Aeg — the receipts">
+<meta property="og:description" content="Verified cognee before trusting it. 18/18 checks, a written contract, tests that prove behavior.">
+<meta property="og:image" content="/assets/og.png">
+<link rel="stylesheet" href="/assets/brand.css">
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html { scroll-behavior:smooth; }
+  body { background:var(--obsidian); color:var(--bone); font-family:var(--font-body); font-size:var(--text-body);
+    line-height:1.6; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+  a { color:inherit; text-decoration:none; }
+  body::after { content:""; position:fixed; inset:0; z-index:3; pointer-events:none; opacity:0.04; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+  nav { position:fixed; top:0; left:0; right:0; z-index:5; display:flex; align-items:center; justify-content:space-between;
+    padding:22px clamp(20px,5vw,64px); mix-blend-mode:difference; }
+  .nav-brand { display:flex; align-items:center; gap:12px; }
+  .nav-brand img { width:26px; height:26px; }
+  .nav-brand .name { font-family:var(--font-mono); font-size:0.8rem; letter-spacing:0.28em; text-transform:uppercase; color:#fff; }
+  .nav-links { display:flex; gap:clamp(14px,3vw,30px); }
+  .nav-links a { font-family:var(--font-mono); font-size:0.72rem; letter-spacing:0.14em; text-transform:uppercase; color:#fff;
+    padding-bottom:3px; border-bottom:1px solid transparent; transition:border-color .3s; }
+  .nav-links a:hover, .nav-links a[aria-current]{ border-color:#fff; }
+
+  .shell { max-width:1180px; margin:0 auto; padding:0 clamp(20px,6vw,64px); }
+
+  header.hero { padding:24vh 0 8vh; }
+  .kicker { margin-bottom:26px; }
+  header.hero h1 { font-family:var(--font-display); font-weight:330; font-size:clamp(2.8rem,8vw,7rem); line-height:0.96;
+    letter-spacing:-0.03em; max-width:15ch; }
+  header.hero h1 em { font-style:italic; }
+  header.hero .stand { margin-top:30px; max-width:56ch; color:var(--ash); font-size:clamp(1.1rem,1.5vw,1.3rem); line-height:1.5; }
+  header.hero .stand b { color:var(--bone); font-weight:400; }
+
+  /* big numbers ledger */
+  .ledger-band { display:grid; grid-template-columns:repeat(4,1fr); gap:clamp(16px,3vw,44px);
+    padding:8vh 0; border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline); }
+  .stat .num { font-family:var(--font-display); font-weight:330; font-size:clamp(2.4rem,5.5vw,4.6rem); line-height:0.9; letter-spacing:-0.02em; }
+  .stat .num em { font-style:italic; color:var(--vital); }
+  .stat .lbl { font-family:var(--font-mono); font-size:0.7rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--ash); margin-top:14px; max-width:22ch; }
+
+  .block { padding:clamp(56px,9vh,110px) 0; }
+  .block.bd { border-top:1px solid var(--hairline); }
+  .block > .lead { display:grid; grid-template-columns:6rem 1fr; gap:clamp(16px,4vw,56px); margin-bottom:52px; }
+  .block .idx { font-family:var(--font-mono); color:var(--ash); font-size:0.8rem; padding-top:6px; letter-spacing:0.1em; }
+  .block h2 { font-family:var(--font-display); font-weight:350; font-size:clamp(1.9rem,3.8vw,3.2rem); letter-spacing:-0.02em; line-height:1.0; }
+  .block .lead p { color:var(--ash); margin-top:16px; max-width:58ch; }
+  .body-grid { display:grid; grid-template-columns:6rem 1fr; gap:clamp(16px,4vw,56px); }
+
+  /* findings: what we learned that changed the design */
+  .finding { padding:32px 0; border-top:1px solid var(--hairline); display:grid; grid-template-columns:1fr 1fr; gap:clamp(20px,4vw,56px); }
+  .finding:last-child { border-bottom:1px solid var(--hairline); }
+  .finding .we-found .k, .finding .so-we .k { font-family:var(--font-mono); font-size:0.68rem; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:12px; }
+  .finding .we-found .k { color:var(--toxin); }
+  .finding .so-we .k { color:var(--vital); }
+  .finding h3 { font-family:var(--font-display); font-weight:380; font-size:clamp(1.3rem,2.4vw,1.9rem); line-height:1.1; letter-spacing:-0.01em; }
+  .finding p { color:var(--ash); margin-top:10px; }
+  .finding code { font-family:var(--font-mono); font-size:0.86em; color:var(--bone); }
+  @media (max-width:760px){ .finding { grid-template-columns:1fr; gap:14px; } }
+
+  /* proof rows */
+  .proofs { }
+  .prow { display:grid; grid-template-columns:auto 1fr; gap:20px; padding:26px 0; border-top:1px solid var(--hairline); align-items:start; }
+  .prow:last-child { border-bottom:1px solid var(--hairline); }
+  .prow .tick { color:var(--vital); font-family:var(--font-mono); font-size:1rem; padding-top:2px; }
+  .prow h3 { font-family:var(--font-display); font-weight:380; font-size:clamp(1.3rem,2.2vw,1.8rem); margin-bottom:8px; letter-spacing:-0.01em; }
+  .prow p { color:var(--ash); max-width:66ch; }
+  .prow .path { font-family:var(--font-mono); font-size:0.75rem; color:var(--ash); margin-top:12px; opacity:0.82; word-break:break-word; }
+  .prow .path::before { content:"└ "; color:var(--vital); }
+
+  .close { padding:12vh 0 14vh; }
+  .close h2 { font-family:var(--font-display); font-weight:340; font-size:clamp(2.2rem,6vw,5rem); line-height:0.94; letter-spacing:-0.03em; max-width:15ch; }
+  .close h2 em { font-style:italic; }
+  .cta-row { margin-top:40px; display:flex; gap:22px; flex-wrap:wrap; }
+  .btn { font-family:var(--font-mono); font-size:0.78rem; letter-spacing:0.14em; text-transform:uppercase; display:inline-flex; align-items:center; gap:10px;
+    padding:15px 26px; border-radius:100px; transition:transform .3s cubic-bezier(0.16,1,0.3,1), border-color .3s; }
+  .btn-primary { background:var(--vital); color:var(--obsidian); font-weight:500; }
+  .btn-primary:hover { transform:translateY(-2px); }
+  .btn-ghost { color:var(--bone); border:1px solid var(--hairline); }
+  .btn-ghost:hover { border-color:var(--bone); }
+
+  footer { padding:40px clamp(20px,6vw,64px); border-top:1px solid var(--hairline); display:flex; justify-content:space-between; flex-wrap:wrap; gap:16px; }
+  footer, footer a { font-family:var(--font-mono); font-size:0.72rem; letter-spacing:0.06em; color:var(--ash); }
+  footer a:hover { color:var(--bone); }
+
+  .fade { opacity:0; transform:translateY(20px); }
+  .reveal.fade { opacity:1; transform:none; transition:opacity .8s cubic-bezier(0.16,1,0.3,1), transform .8s cubic-bezier(0.16,1,0.3,1); }
+
+  @media (max-width:760px){
+    .ledger-band { grid-template-columns:1fr 1fr; gap:32px 20px; }
+    .block > .lead, .body-grid { grid-template-columns:1fr; gap:10px; }
+    nav { padding:16px 20px; } .nav-links a:not(:last-child){ display:none; }
+  }
+  @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto;} .fade{opacity:1!important;transform:none!important;} *{transition:none!important;} }
+</style>
+</head>
+<body>
+<nav>
+  <a class="nav-brand" href="/" aria-label="Aeg home"><img src="/assets/aeg-mark.svg" alt=""><span class="name">Aeg</span></a>
+  <div class="nav-links">
+    <a href="/how">Manifesto</a>
+    <a href="/proof" aria-current="page">Proof</a>
+    <a href="/dashboard">Live demo</a>
+  </div>
+</nav>
+
+<main>
+<div class="shell">
+  <header class="hero">
+    <div class="kicker brand-label">The receipts</div>
+    <h1>We verified cognee before we <em>trusted</em> it.</h1>
+    <p class="stand">A memory immune system is only as honest as its own foundations. Before a line of
+      feature code, Aeg ran <b>18 empirical checks</b> against the real cognee it would ship on, wrote the
+      findings into a contract, and let those findings — not assumptions — shape the design.</p>
+  </header>
+
+  <section class="ledger-band">
+    <div class="stat"><div class="num">18<em>/18</em></div><div class="lbl">cognee behaviors verified before building</div></div>
+    <div class="stat"><div class="num">72</div><div class="lbl">tests green · 11 hit a real model</div></div>
+    <div class="stat"><div class="num">1</div><div class="lbl">file touches cognee · a signature change is a one-file fix</div></div>
+    <div class="stat"><div class="num">live</div><div class="lbl">deployed · persistent · Postgres-verified</div></div>
+  </section>
+
+  <!-- FINDINGS -->
+  <section class="block">
+    <div class="lead"><div class="idx">01</div><div>
+      <h2>What we learned changed what we built.</h2>
+      <p>The truth-check didn't just confirm the docs — it surfaced behavior that reshaped the design. Three
+        findings, and the decisions they forced.</p>
+    </div></div>
+    <div class="body-grid"><div></div><div>
+      <div class="finding">
+        <div class="we-found"><div class="k">We found</div>
+          <h3>Recall is global.</h3>
+          <p>In the embedded config, <code>recall(datasets=[x])</code> doesn't isolate the search — content
+            from another dataset came back anyway.</p></div>
+        <div class="so-we"><div class="k">So we</div>
+          <h3>Never trust a filter for safety.</h3>
+          <p>Quarantine became "never cognify / forget," not filtering; multi-user is honest namespacing, not
+            claimed isolation.</p></div>
+      </div>
+      <div class="finding">
+        <div class="we-found"><div class="k">We found</div>
+          <h3>Filtering leaks.</h3>
+          <p>Node-set filtering held in isolation but leaked through shared-entity graph traversal once the
+            graph got busy.</p></div>
+        <div class="so-we"><div class="k">So we</div>
+          <h3>Made exclusion airtight by construction.</h3>
+          <p>Blocked content is <code>never written</code> to the recall substrate — you can't leak what was
+            never stored.</p></div>
+      </div>
+      <div class="finding">
+        <div class="we-found"><div class="k">We found</div>
+          <h3>Only deletion is airtight.</h3>
+          <p>Item-level <code>forget()</code> surgically removes a memory in a fifth of a second, with zero
+            LLM calls, and shared entities survive.</p></div>
+        <div class="so-we"><div class="k">So we</div>
+          <h3>Built the immune response on it.</h3>
+          <p>Reversible quarantine and permanent removal both ride <code>forget()</code> — verified before it
+            became the spine.</p></div>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- PROOF -->
+  <section class="block bd">
+    <div class="lead"><div class="idx">02</div><div>
+      <h2>Behavior, not vibes.</h2>
+      <p>The tests that matter assert what the system <em>does</em> to memory — not just that a call returned
+        without error.</p>
+    </div></div>
+    <div class="body-grid"><div></div><div>
+      <div class="proofs">
+        <div class="prow"><span class="tick">✓</span><div>
+          <h3>forget() provably removes.</h3>
+          <p>A before/after recall diff shows the poisoned fact present, then gone — the deletion is observed,
+            not assumed.</p>
+          <div class="path">tests/test_response_llm.py · recall_diff(forget)</div>
+        </div></div>
+        <div class="prow"><span class="tick">✓</span><div>
+          <h3>improve() provably adds.</h3>
+          <p>The same diff shows a session-bridged note absent, then recalled — reinforcement changes recall
+            content for real.</p>
+          <div class="path">tests/test_response_llm.py · recall_diff(improve)</div>
+        </div></div>
+        <div class="prow"><span class="tick">✓</span><div>
+          <h3>One door to cognee.</h3>
+          <p>Every cognee call lives in a single wrapper. An API change is a one-file fix, and the whole
+            integration is auditable in one place.</p>
+          <div class="path">aeg/cognee_client.py — the only module that imports cognee</div>
+        </div></div>
+        <div class="prow"><span class="tick">✓</span><div>
+          <h3>Runs from a fresh clone.</h3>
+          <p>Sixty-one tests need no API key; the full poison→heal loop runs headless in about a minute and
+            asserts every beat.</p>
+          <div class="path">demo/run_demo.py · exit 0 or it didn't heal</div>
+        </div></div>
+      </div>
+    </div></div>
+  </section>
+
+  <!-- DEPLOY -->
+  <section class="block bd">
+    <div class="lead"><div class="idx">03</div><div>
+      <h2>And it's actually running.</h2>
+      <p>Not a slide. The same code you can read is deployed, persists memory across restarts, and has been
+        run on Postgres end to end.</p>
+    </div></div>
+    <div class="body-grid"><div></div><div>
+      <div class="proofs">
+        <div class="prow"><span class="tick">●</span><div>
+          <h3>Live and persistent.</h3>
+          <p>The gateway serves this whole site and the monitor. Memory survives redeploys on an attached
+            volume — a fact written yesterday is still recalled today.</p>
+        </div></div>
+        <div class="prow"><span class="tick">●</span><div>
+          <h3>Portable by design.</h3>
+          <p>Embedded by default with zero external services; the full loop has also been verified live with
+            relational and vector storage on Postgres/pgvector.</p>
+        </div></div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="close">
+    <h2>Read it. Run it. <em>Attack it.</em></h2>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/dashboard">● Enter the live demo</a>
+      <a class="btn btn-ghost" href="https://github.com/OoJae/aeg" target="_blank" rel="noopener noreferrer">Read the source</a>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <span>Aeg — a memory immune system, built on cognee 1.2.2</span>
+  <span>Built with Claude Code · <a href="https://github.com/OoJae/aeg" target="_blank" rel="noopener noreferrer">source</a> · MIT</span>
+</footer>
+</main>
+
+<script>
+(() => {
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const fades = document.querySelectorAll(".ledger-band, .block, .close");
+  fades.forEach(el => el.classList.add("fade"));
+  if (reduce){ fades.forEach(el=>el.classList.add("reveal")); return; }
+  const io = new IntersectionObserver((es)=>{ for(const e of es) if(e.isIntersecting){ e.target.classList.add("reveal"); io.unobserve(e.target);} }, {rootMargin:"0px 0px -12% 0px"});
+  fades.forEach(el=>io.observe(el));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Aeg logomark: a shield holding a memory graph, one node held in quarantine">
+  <!-- the shield (Aegis) -->
+  <path d="M32 4 L56 17 V40 C56 50 46 57.5 32 61 C18 57.5 8 50 8 40 V17 Z"
+        stroke="#2fbf71" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- the memory graph -->
+  <line x1="24" y1="23" x2="41" y2="28" stroke="#2fbf71" stroke-width="1.6"/>
+  <line x1="24" y1="23" x2="29" y2="43" stroke="#2fbf71" stroke-width="1.6"/>
+  <circle cx="24" cy="23" r="3.4" fill="#2fbf71"/>
+  <circle cx="41" cy="28" r="3.4" fill="#2fbf71"/>
+  <!-- the quarantined node: held, not destroyed -->
+  <circle cx="29" cy="43" r="2.6" fill="#2fbf71"/>
+  <circle cx="29" cy="43" r="7.2" stroke="#2fbf71" stroke-width="1.4" stroke-dasharray="3.2 3"/>
+</svg>

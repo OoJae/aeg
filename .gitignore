@@ -1,0 +1,35 @@
+# Secrets — never commit
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Cognee local stores (embedded sqlite/lancedb/ladybug data)
+.cognee/
+.cognee_verify/
+.cognee_probe3/
+.cognee_demo/
+.cognee_dashboard/
+.cognee_probe_truth/
+.cognee_probe_mu/
+tests/.cognee_test/
+.playwright-mcp/
+
+# Generated artifacts
+artifacts/
+docs/verify_output.txt
+
+# OS
+.DS_Store
+aeg-*.png
+
+# Internal / non-public-facing docs — never publish (strategy, build guide,
+# master prompt, video shotlist, raw verify output). README-referenced receipts
+# (COGNEE_NOTES.md, screenshots/) live OUTSIDE docs/ so they still ship.
+01-*.md
+02-*.md
+03-*.md
+docs/

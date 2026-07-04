@@ -1,0 +1,5 @@
+{
+  "content": "Project Atlas migrated from Postgres to MongoDB in Q2 2026; Postgres has been fully deprecated and is no longer used.",
+  "source": { "kind": "tool", "identifier": "ops-slack-bot" },
+  "dataset": "aeg_demo"
+}

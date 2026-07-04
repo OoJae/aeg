@@ -1,0 +1,66 @@
+/* ============================================================================
+   AEG — brand tokens
+   The single source of truth for color, type, and focus across the landing,
+   /how, and the dashboard. Aeg ← Aegis: the shield over an agent's memory.
+   Rule: --toxin and --quarantine are SEMANTIC (attack states only), never
+   decoration. --vital is the one accent.
+   ========================================================================== */
+
+@font-face {
+  font-family: "Fraunces";
+  src: url("/assets/fraunces-var.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/assets/jetbrains-mono.woff2") format("woff2");
+  font-weight: 400 500;
+  font-display: swap;
+}
+
+:root {
+  /* color */
+  --obsidian: #0b0b0a;
+  --carbon: #161614;
+  --hairline: #26251f;
+  --bone: #ede8dd;
+  --ash: #8a867b;
+  --vital: #2fbf71;
+  --toxin: #d8434c;        /* semantic: infection beats only */
+  --quarantine: #e8a81c;   /* semantic: quarantine beats only */
+
+  /* type */
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-hero: clamp(3.5rem, 11vw, 12rem);
+  --text-section: clamp(2.2rem, 5vw, 5rem);
+  --text-body: clamp(1.0625rem, 1.1vw, 1.1875rem);
+  --text-label: 0.75rem;
+
+  --ls-display: -0.03em;
+  --ls-label: 0.14em;
+}
+
+/* focus — visible everywhere, on-brand */
+:focus-visible {
+  outline: 2px solid var(--vital);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: var(--vital);
+  color: var(--obsidian);
+}
+
+/* shared label style (mono eyebrows) */
+.brand-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--ash);
+}
