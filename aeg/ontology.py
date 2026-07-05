@@ -161,6 +161,11 @@ class Antibody(DataPoint):
     times_seen: int = 1
     last_seen: str = ""  # ISO timestamp
     dataset: str = ""
+    # semantic antibody: embedding of the attack's representative text (fastembed,
+    # 384-dim) + a short sample, so paraphrased replays can be caught by cosine
+    # similarity, not just lexical token-subset. Stored, never vector-indexed.
+    embedding: list[float] = []
+    sample: str = ""
     metadata: dict = {"index_fields": []}
 
 
@@ -174,6 +179,8 @@ def antibody_from_payload(payload: dict) -> Antibody:
         times_seen=payload.get("times_seen", 1),
         last_seen=payload.get("last_seen", ""),
         dataset=payload.get("dataset", ""),
+        embedding=payload.get("embedding", []) or [],
+        sample=payload.get("sample", ""),
     )
 
 

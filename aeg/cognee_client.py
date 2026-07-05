@@ -21,6 +21,7 @@ config.apply_cognee_env()  # must precede the cognee import (COGNEE_NOTES §11)
 import cognee  # noqa: E402
 from cognee import SearchType  # noqa: E402  (re-export: lane selector for aeg)
 from cognee.infrastructure.databases.graph import get_graph_engine  # noqa: E402
+from cognee.infrastructure.databases.vector import get_vector_engine  # noqa: E402
 from cognee.infrastructure.llm import LLMGateway  # noqa: E402
 from cognee.low_level import DataPoint  # noqa: E402  (re-export: base class for aeg.ontology)
 from cognee.modules.data.exceptions.exceptions import DatasetNotFoundError  # noqa: E402
@@ -47,6 +48,62 @@ def _to_dict(obj: Any) -> Any:
     return obj
 
 
+_user_cache: dict[str, Any] = {}
+_schema_ready = False
+
+
+async def _ensure_schema() -> None:
+    """Create cognee's relational tables (users/principals/permissions/…) once.
+    On a fresh Postgres these don't exist until a table-creating op runs, so a
+    first-call create_user would hit `relation "principals" does not exist`.
+    Idempotent (CREATE IF NOT EXISTS)."""
+    global _schema_ready
+    if _schema_ready:
+        return
+    from cognee.infrastructure.databases.relational import create_db_and_tables  # lazy
+    try:
+        await create_db_and_tables()
+    except Exception:
+        pass
+    _schema_ready = True
+
+
+async def get_cognee_user(user_id: str):
+    """Get-or-create the cognee user backing an Aeg user_id (access-control mode,
+    Feature 4). cognee's add/cognify/search scope data to this user, so user A's
+    memory is invisible to user B — proven by scripts/verify_access_control.py.
+    Cached per process."""
+    if user_id in _user_cache:
+        return _user_cache[user_id]
+    await _ensure_schema()
+    from cognee.modules.users.methods import create_user, get_user_by_email  # lazy
+    email = f"aeg-user-{user_id}@example.com"
+    user = None
+    try:
+        user = await get_user_by_email(email)
+    except Exception:
+        user = None
+    if user is None:
+        user = await create_user(email=email, password=f"aeg-{user_id}", is_verified=True)
+    _user_cache[user_id] = user
+    return user
+
+
+def _normalize_search(results: Any) -> list[dict]:
+    """Normalize cognee.search output (access-control recall) into recall's
+    {text, source, raw} shape. Search returns dicts like {search_result: [...]}."""
+    out: list[dict] = []
+    for item in (results or []):
+        sr = item.get("search_result") if isinstance(item, dict) else None
+        if isinstance(sr, list):
+            out.extend({"text": str(s), "source": "graph", "raw": item} for s in sr)
+        elif sr is not None:
+            out.append({"text": str(sr), "source": "graph", "raw": item})
+        else:
+            out.append({"text": str(item), "source": "graph", "raw": item})
+    return out
+
+
 async def remember(
     data: str | list[str],
     *,
@@ -55,6 +112,7 @@ async def remember(
     node_set: list[str] | None = None,
     graph_model: type | None = None,
     self_improvement: bool = False,
+    user_id: str | None = None,
 ) -> dict:
     """Write memory. COGNEE_NOTES §1, §2, §7.
 
@@ -63,7 +121,18 @@ async def remember(
     Returns the RememberResult dict; `items` holds data ids for forget(),
     but is cumulative for the dataset — diff against prior items to attribute
     a specific write (§2).
+
+    Access-control mode (config.AEG_ACCESS_CONTROL + user_id): routes through the
+    user-scoped add/cognify path (high-level remember takes no user) so the write
+    is owned by, and isolated to, this tenant.
     """
+    if config.AEG_ACCESS_CONTROL and user_id:
+        user = await get_cognee_user(user_id)
+        add_kwargs = {"node_set": node_set} if node_set else {}
+        await cognee.add(data, dataset_name=dataset, user=user, **add_kwargs)
+        await cognee.cognify(datasets=[dataset], user=user)
+        return {"status": "completed", "items": []}  # per-tenant dataset; diff moot
+
     kwargs: dict[str, Any] = {}
     if node_set is not None:
         kwargs["node_set"] = node_set
@@ -97,6 +166,7 @@ async def recall(
     node_name_filter_operator: str = "OR",
     only_context: bool = False,
     query_type: Any = None,
+    user_id: str | None = None,
     **kwargs: Any,
 ) -> list[dict]:
     """Read memory. COGNEE_NOTES §1, §2, §6.
@@ -106,7 +176,21 @@ async def recall(
     tags — the quarantine-exclusion mechanism (§6), graph lanes only.
     Recalling a fully forgotten dataset raises DatasetNotFoundError in cognee;
     here that is an empty result (§2).
+
+    Access-control mode (config.AEG_ACCESS_CONTROL + user_id): searches as this
+    tenant, so a user provably cannot recall another user's memory.
     """
+    if config.AEG_ACCESS_CONTROL and user_id:
+        user = await get_cognee_user(user_id)
+        try:
+            results = await cognee.search(
+                query_text=query, query_type=query_type, user=user,
+                datasets=datasets or [config.DATASET_MAIN], top_k=top_k,
+            )
+        except DatasetNotFoundError:
+            return []
+        return _normalize_search(results)
+
     try:
         results = await cognee.recall(
             query,
@@ -263,6 +347,15 @@ async def dashboard_snapshot(dataset: str, nodes: list | None = None) -> dict:
             continue
         out[key].append({"id": str(node_id), **payload})
     return out
+
+
+async def embed(texts: list[str]) -> list[list[float]]:
+    """Embed text via cognee's configured embedding engine (fastembed local,
+    all-MiniLM-L6-v2, 384-dim, keyless by default). Used for semantic antibody
+    matching — cosine over these vectors catches paraphrased replays that share
+    no distinctive tokens with the recorded attack."""
+    engine = get_vector_engine().embedding_engine
+    return await engine.embed_text(texts)
 
 
 async def reset_all() -> dict:

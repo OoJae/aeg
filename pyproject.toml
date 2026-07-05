@@ -8,7 +8,12 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "fastapi>=0.115",
     "uvicorn>=0.30",
+    "httpx>=0.28",        # MCP server calls the gateway app in-process (ASGITransport)
+    "mcp>=1.2",           # Model Context Protocol server surface (aeg-mcp)
 ]
+
+[project.scripts]
+aeg-mcp = "aeg.mcp_server:main"
 
 [project.optional-dependencies]
 # Phase-6 Postgres profile (AEG_PROFILE=postgres). Not installed by default —

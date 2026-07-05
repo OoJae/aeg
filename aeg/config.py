@@ -68,6 +68,43 @@ AEG_ANTIBODIES_ENABLED = _truthy(os.environ.get("AEG_ANTIBODIES_ENABLED", "true"
 AEG_TRUTH_SUBSPACE = _truthy(os.environ.get("AEG_TRUTH_SUBSPACE", "false"))
 AEG_MULTI_USER = _truthy(os.environ.get("AEG_MULTI_USER", "false"))
 
+# --- "What's next" features (each independently flagged) -------------------- #
+
+# Semantic antibodies: also block paraphrased replays via embedding cosine, not
+# just lexical token-subset. Local fastembed vectors, so on by default; the
+# semantic branch only runs when an antibody actually carries an embedding.
+AEG_SEMANTIC_ANTIBODIES = _truthy(os.environ.get("AEG_SEMANTIC_ANTIBODIES", "true"))
+
+
+def _int_env(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _float_env(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, "").strip() or default)
+    except ValueError:
+        return default
+
+
+AEG_ANTIBODY_SIM_THRESHOLD = _float_env("AEG_ANTIBODY_SIM_THRESHOLD", 0.82)
+
+# Scheduled background immune sweeps: the immune system runs itself. OFF by
+# default (unattended LLM spend); shares the global daily budget, bounded pairs.
+AEG_AUTO_SWEEP_ENABLED = _truthy(os.environ.get("AEG_AUTO_SWEEP_ENABLED", "false"))
+AEG_SWEEP_INTERVAL_SECONDS = _int_env("AEG_SWEEP_INTERVAL_SECONDS", 300)
+AEG_SWEEP_MAX_PAIRS = _int_env("AEG_SWEEP_MAX_PAIRS", 12)
+
+# Real per-user access control (tenant isolation, not namespacing). Requires the
+# Postgres profile + cognee backend access control. OFF by default.
+AEG_ACCESS_CONTROL = _truthy(os.environ.get("AEG_ACCESS_CONTROL", "false"))
+
 
 def user_dataset(user_id: str) -> str:
     """Per-user dataset namespace (Phase 6 multi-user, organizational only —
@@ -79,16 +116,6 @@ def user_dataset(user_id: str) -> str:
 # The gateway is a PUBLIC, paid-LLM, persistent service. These bound spend, data
 # destruction, and memory/disk growth from unauthenticated traffic. All are read
 # via config.X at call time so tests can monkeypatch them.
-
-def _int_env(name: str, default: int) -> int:
-    raw = os.environ.get(name, "").strip()
-    if not raw:
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
-
 
 # Optional shared-secret auth. UNSET => open demo mode (as deployed, so judges can
 # click through). SET => mutating/LLM routes require the X-Aeg-Key header, and the
@@ -155,6 +182,18 @@ def apply_cognee_env(scratch_root: Path | None = None) -> None:
             "Persistence is not guaranteed (AEG_SCRATCH_DIR=%s → %s): memory will "
             "NOT survive a restart/redeploy unless this points at a persistent "
             "volume. Set AEG_SCRATCH_DIR in production.", scratch_env or "(unset)", root)
+    # Real per-user access control (Feature 4): flip cognee's backend access
+    # control ON so add/cognify/search scope data to the acting user. Requires the
+    # Postgres profile — embedded SQLite cannot back cognee's permission tables
+    # ("unable to open database file"). Set BEFORE the setdefault below so it wins.
+    access_control = AEG_ACCESS_CONTROL and os.environ.get("AEG_PROFILE") == "postgres"
+    if AEG_ACCESS_CONTROL and not access_control:
+        logging.getLogger("aeg").warning(
+            "AEG_ACCESS_CONTROL needs AEG_PROFILE=postgres (embedded can't back "
+            "cognee access control) — access control NOT enabled.")
+    if access_control:
+        os.environ["ENABLE_BACKEND_ACCESS_CONTROL"] = "true"
+
     defaults = {
         "DATA_ROOT_DIRECTORY": str(root / "data"),
         "SYSTEM_ROOT_DIRECTORY": str(root / "system"),
@@ -174,14 +213,23 @@ def apply_cognee_env(scratch_root: Path | None = None) -> None:
     # graph store stays embedded Ladybug (a credible profile without a second
     # external service). Needs `docker compose up` + the cognee[postgres] extra.
     if os.environ.get("AEG_PROFILE") == "postgres":
+        pg = {
+            "host": os.environ.get("AEG_PG_HOST", "localhost"),
+            "port": os.environ.get("AEG_PG_PORT", "5432"),
+            "name": os.environ.get("AEG_PG_NAME", "cognee"),
+            "user": os.environ.get("AEG_PG_USER", "cognee"),
+            "password": os.environ.get("AEG_PG_PASSWORD", "cognee"),
+        }
         for key, value in {
             "DB_PROVIDER": "postgres",
             "VECTOR_DB_PROVIDER": "pgvector",
-            "DB_HOST": os.environ.get("AEG_PG_HOST", "localhost"),
-            "DB_PORT": os.environ.get("AEG_PG_PORT", "5432"),
-            "DB_NAME": os.environ.get("AEG_PG_NAME", "cognee"),
-            "DB_USERNAME": os.environ.get("AEG_PG_USER", "cognee"),
-            "DB_PASSWORD": os.environ.get("AEG_PG_PASSWORD", "cognee"),
+            "DB_HOST": pg["host"], "DB_PORT": pg["port"], "DB_NAME": pg["name"],
+            "DB_USERNAME": pg["user"], "DB_PASSWORD": pg["password"],
+            # pgvector under backend access control needs its OWN credentials
+            # (create_vector_engine: "Missing required pgvector credentials").
+            "VECTOR_DB_HOST": pg["host"], "VECTOR_DB_PORT": pg["port"],
+            "VECTOR_DB_NAME": pg["name"], "VECTOR_DB_USERNAME": pg["user"],
+            "VECTOR_DB_PASSWORD": pg["password"],
         }.items():
             os.environ.setdefault(key, value)
 

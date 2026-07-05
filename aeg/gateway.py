@@ -239,9 +239,9 @@ def attribute_new_ids(items: list[dict], seen: set[str]) -> list[str]:
 
 def effective_dataset(dataset: str, user_id: str | None) -> str:
     """Resolve the target dataset, applying per-user namespacing when
-    AEG_MULTI_USER is on and a user_id is given (Phase 6, organizational only —
-    recall stays global in embedded; real isolation needs access control)."""
-    if config.AEG_MULTI_USER and user_id:
+    AEG_MULTI_USER is on and a user_id is given (organizational namespacing), or
+    AEG_ACCESS_CONTROL is on (real cognee tenant isolation — Feature 4)."""
+    if (config.AEG_MULTI_USER or config.AEG_ACCESS_CONTROL) and user_id:
         return config.user_dataset(user_id)
     return dataset
 
@@ -350,6 +350,33 @@ async def _cached(request: Request, key: str, ttl: float, producer):
 
 # --- app -------------------------------------------------------------------- #
 
+async def _auto_sweep_loop(app: FastAPI) -> None:
+    """Scheduled background immune sweep: the immune system runs itself instead of
+    only on demand. Off unless AEG_AUTO_SWEEP_ENABLED. Bounded (AEG_SWEEP_MAX_PAIRS)
+    and shares the daily LLM budget so it can't drain the wallet; a flake never
+    kills the loop."""
+    while True:
+        try:
+            await asyncio.sleep(config.AEG_SWEEP_INTERVAL_SECONDS)
+        except asyncio.CancelledError:
+            break
+        try:
+            ds = config.DATASET_MAIN
+            cost = config.AEG_SWEEP_MAX_PAIRS
+            st = app.state
+            now = time.time()
+            if now - st.llm_window_start >= 86400:  # roll the daily budget window
+                st.llm_window_start, st.llm_calls = now, 0
+            budget = config.AEG_DAILY_LLM_BUDGET
+            if budget > 0 and st.llm_calls + cost > budget:
+                continue  # budget exhausted this window — skip, try next interval
+            st.llm_calls += cost
+            async with app.state.locks[ds]:
+                await detection.scan_dataset(ds, max_pairs=cost)
+        except Exception:
+            continue  # never let a sweep failure kill the scheduler
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     # Rebuild per-dataset attribution sets from the persistent store so a restart
@@ -360,7 +387,16 @@ async def _lifespan(app: FastAPI):
             app.state.seen_ids[ds] = set(await cognee_client.list_data_ids(ds))
         except Exception:
             pass
-    yield
+    sweep = asyncio.create_task(_auto_sweep_loop(app)) if config.AEG_AUTO_SWEEP_ENABLED else None
+    try:
+        yield
+    finally:
+        if sweep is not None:
+            sweep.cancel()
+            try:
+                await sweep
+            except (asyncio.CancelledError, Exception):
+                pass
 
 
 def create_app() -> FastAPI:
@@ -422,7 +458,8 @@ def create_app() -> FastAPI:
             # cumulative-items diff (COGNEE_NOTES §2) is correct.
             async with lock:
                 result = await cognee_client.remember(
-                    req.content, dataset=req.dataset, node_set=sc.facets
+                    req.content, dataset=req.dataset, node_set=sc.facets,
+                    user_id=req.user_id,
                 )
                 seen = app.state.seen_ids[req.dataset]
                 new_ids = attribute_new_ids(result.get("items", []), seen)
@@ -565,6 +602,7 @@ def create_app() -> FastAPI:
                 top_k=req.top_k,
                 query_type=cognee_client.LANES[req.lane],
                 only_context=req.only_context,
+                user_id=req.user_id,
                 **recall_kwargs,
             )
         out = [RecallEntryOut(text=e["text"], provenance=e["source"]) for e in entries]

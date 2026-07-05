@@ -51,9 +51,33 @@ is auditable in one place.
 | **Antibody meta-memory** | Defeated attacks are fingerprinted (numbers kept as anti-collision keys) and stored as `Antibody` DataPoints in a dedicated **`aeg_antibodies`** namespace in the typed overlay; a **replay is blocked at ingest** by token-subset containment — instant, no LLM. Survives `forget()`. | `aeg/antibodies.py`; `response.respond` |
 
 **Advanced features** (each independently flagged): antibody meta-memory (on),
-truth-subspace reranking (experimental, off), per-user namespacing (off),
-single-Postgres profile. All four core ops are labeled **on-screen** in the demo —
-each dashboard button's subtitle names the cognee op it fires.
+truth-subspace reranking (experimental, off), single-Postgres profile. All four
+core ops are labeled **on-screen** in the demo — each dashboard button's subtitle
+names the cognee op it fires.
+
+## Features (the four roadmap items, now shipped)
+
+Each is independent and flag-gated (`aeg/config.py`); the embedded poison→heal
+spine is untouched with all defaults.
+
+- **MCP server** — `uv run aeg-mcp` exposes `remember / recall / scan / respond /
+  reinforce / quarantine / contradictions / health` as MCP tools, so any agent
+  (Claude Desktop, Cursor, …) can drop Aeg in front of its memory. It reuses the
+  gateway in-process (`httpx.ASGITransport`), so every tool runs the exact
+  screening + immune + guard path. → [`aeg/mcp_server.py`](aeg/mcp_server.py)
+- **Semantic antibodies** (on) — beyond the lexical token-subset block, an
+  embedding-cosine fallback (local fastembed, ≥ 0.82) catches synonym-swap /
+  reworded replays lexical misses ("Postgres→PostgreSQL", "MongoDB→Mongo"), while
+  provably sparing the legitimate truth (see Limitations). → [`aeg/antibodies.py`](aeg/antibodies.py)
+- **Scheduled background immune sweeps** (off by default) — `AEG_AUTO_SWEEP_ENABLED`
+  runs a bounded `/scan` on an interval that shares the daily LLM budget, so the
+  immune system runs itself. → gateway lifespan, `_auto_sweep_loop`
+- **Real per-user access control** (off; Postgres) — `AEG_ACCESS_CONTROL=true` on
+  the Postgres profile enables cognee backend access control: each Aeg `user_id`
+  maps to a cognee user, and ingest/recall route through the user-scoped
+  `add`/`cognify`/`search` path, so user A provably cannot recall user B's memory
+  ([`scripts/verify_access_control.py`](scripts/verify_access_control.py)).
+  → `cognee_client.get_cognee_user`, `remember`/`recall` user path
 
 ## Architecture
 
@@ -161,8 +185,18 @@ runs live.
 | `cloud` | Cognee Cloud via `cognee.serve(url=…, api_key=…)` | set `AEG_COGNEE_URL` / `AEG_COGNEE_API_KEY` |
 
 Feature flags (defaults): `AEG_ANTIBODIES_ENABLED=true` · `AEG_TRUTH_SUBSPACE=false`
-(experimental; verified to run via `scripts/verify_phase6_truth.py`) ·
-`AEG_MULTI_USER=false` (namespacing only — see Limitations).
+(experimental) · `AEG_MULTI_USER=false` (namespacing) · `AEG_SEMANTIC_ANTIBODIES=true`
+· `AEG_AUTO_SWEEP_ENABLED=false` · `AEG_ACCESS_CONTROL=false` (Postgres-only). See
+the **Features** section and [`.env.example`](.env.example) for all of them.
+
+### MCP quickstart
+
+```bash
+uv run aeg-mcp        # stdio MCP server — 8 tools (remember/recall/scan/…)
+```
+Register in an MCP client (e.g. Claude Desktop) with command `uv`, args
+`["run","aeg-mcp"]`, and `cwd` = this repo. Any connected agent can then screen its
+ingests, recall immune-aware memory, and run the full detect→forget→reinforce loop.
 
 ## Security & deployment posture
 
@@ -186,9 +220,11 @@ but provenance is still client-declared (see the note under Honest limitations).
 ## Receipts (tests + verification)
 
 ```bash
-uv run pytest -m "not llm"     # 86 tests, no API key needed (pure logic + overlay + hardening)
-uv run pytest                  # all 97 (11 make real LLM calls)
-uv run python scripts/verify_cognee_api.py   # re-run the 18/18 cognee truth-check
+uv run pytest -m "not llm"     # 94 tests, no API key needed (pure logic + overlay + hardening + features)
+uv run pytest                  # all 106 (12 LLM; the access-control test skips without Postgres)
+uv run python scripts/verify_cognee_api.py         # re-run the 18/18 cognee truth-check
+docker compose up -d && AEG_PROFILE=postgres AEG_ACCESS_CONTROL=true \
+  uv run python scripts/verify_access_control.py    # prove per-user tenant isolation
 ```
 
 The two tests that matter most for judging live in
@@ -203,15 +239,18 @@ Every limitation below is backed by an empirical finding in
 [`COGNEE_NOTES.md`](COGNEE_NOTES.md). Aeg *detects, reduces, and heals* —
 it does not *guarantee*.
 
-- **Recall is global in the embedded config (§6b).** `recall(datasets=[X])` does
+- **Recall is global in the *embedded* config (§6b).** `recall(datasets=[X])` does
   not isolate the search, and `node_set`/dataset filtering leaks through
-  shared-entity graph traversal. That is *why* Aeg's quarantine is
-  "never-cognify / `forget()`" rather than filtering — and it's why multi-user
-  mode is organizational **namespacing**, not tenant isolation (real isolation
-  needs cognee access control or the Postgres/Cloud profile).
-- **Antibody matching is lexical.** It blocks exact and near-exact replays
-  (reordering, case, filler words), not synonym-level paraphrase — paraphrased
-  attacks still fall to the slower LLM `/scan` (defense in depth).
+  shared-entity graph traversal — that is *why* Aeg's quarantine is
+  "never-cognify / `forget()`" rather than filtering. **Real tenant isolation is
+  now available** via `AEG_ACCESS_CONTROL=true` on the Postgres profile (cognee
+  backend access control — see Features); the embedded default remains global.
+- **Semantic antibodies stop at near-duplicates by design.** They block
+  synonym-swap / reworded replays lexical misses ("Postgres→PostgreSQL",
+  "MongoDB→Mongo"; cosine ≥ 0.82), but *not* heavy paraphrase — in embedding
+  space a reworded lie and the legit truth about the same subject sit at the same
+  cosine (~0.72), so a threshold low enough to catch heavy paraphrase would censor
+  the truth. Heavy paraphrase falls to the LLM `/scan` (defense in depth).
 - **Retrieval variance on 384-dim local embeddings (§10).** Plain
   `GRAPH_COMPLETION` occasionally misses a multi-hop bridge; mitigations are baked
   in (one fact per `remember()`, `top_k>=10`, a `_COT` retrieval ladder).
@@ -230,9 +269,12 @@ it does not *guarantee*.
 
 ## What's next
 
-Semantic antibodies (embedding-space matching, to catch paraphrased replays),
-real per-user access control, scheduled background immune sweeps, and an MCP
-server surface so any agent can drop Aeg in front of its memory.
+The four previous roadmap items now ship (see **Features** above): semantic
+antibodies, real per-user access control, scheduled background sweeps, and the MCP
+server. Next: **contrastive semantic detection** (block a reworded lie only when
+it's closer to a known attack than to a trusted claim — to safely reach heavy
+paraphrase), **per-tenant immune sweeps + overlay isolation** (the audit overlay is
+still global under access control), and a **hosted multi-tenant control plane**.
 
 ## Repo map
 

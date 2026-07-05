@@ -185,7 +185,8 @@ async def respond(
             if config.AEG_ANTIBODIES_ENABLED:
                 pattern = antibodies.fingerprint(representative)
                 await antibodies.record_antibody(
-                    dataset, pattern=pattern, attack_type="false_fact")
+                    dataset, pattern=pattern, attack_type="false_fact",
+                    sample=representative.get("text", ""))
                 batch.append(ImmuneEvent(
                     action="antibody",
                     target=representative.get("text", "")[:80],

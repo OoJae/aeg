@@ -33,3 +33,6 @@ aeg-*.png
 02-*.md
 03-*.md
 docs/
+
+# demo-video capture (screenshots, mp4, script) — not part of the package
+demo-assets/
